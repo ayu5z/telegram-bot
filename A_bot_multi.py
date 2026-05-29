@@ -4,8 +4,29 @@ import os
 import random
 import time
 import logging
+from threading import Thread
+from flask import Flask
 from telegram import Update, Bot
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
+
+# ---------------------------
+# 🌐 DUMMY WEB SERVER FOR RENDER (FREE TIER FIX)
+# ---------------------------
+app_flask = Flask('')
+
+@app_flask.route('/')
+def home():
+    return "Bot is running perfectly!"
+
+def run_flask():
+    # Render automatic 'PORT' provide karta hai, default 8080 rahega
+    port = int(os.environ.get("PORT", 8080))
+    app_flask.run(host='0.0.0.0', port=port)
+
+def keep_alive():
+    # Flask ko background thread mein chalayein taaki Telegram bot block na ho
+    t = Thread(target=run_flask)
+    t.start()
 
 # ---------------------------
 # CONFIG (Saare 7 Active Tokens Ke Sath)
@@ -454,7 +475,6 @@ async def run_all_bots():
     for token in TOKENS:
         if token.strip():
             try:
-                # Direct safe bot instances setup without relying on uninitialized app.bot
                 bot_obj = Bot(token)
                 bots.append(bot_obj)
                 
@@ -475,6 +495,10 @@ async def run_all_bots():
     await asyncio.Event().wait()
 
 if __name__ == "__main__":
+    # Flask Web Server ko start karein taaki Render deploy pass kar sake
+    keep_alive()
+    
+    # Baaki Telegram bot ka main logic chalayein
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     loop.run_until_complete(run_all_bots())
