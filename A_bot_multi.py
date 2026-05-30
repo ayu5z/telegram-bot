@@ -102,7 +102,7 @@ async def bot_loop(bot_obj, chat_id, base, mode):
             text = f"{base} {RAID_TEXTS[i % len(RAID_TEXTS)]}" if mode == "raid" else f"{base} {NCEMO_EMOJIS[i % len(NCEMO_EMOJIS)]}"
             await bot_obj.set_chat_title(chat_id, text[:30])
             i += 1
-            await asyncio.sleep(max(3.5, delay)) # Title loops need slightly more safety
+            await asyncio.sleep(max(3.5, delay))
         except Exception:
             await asyncio.sleep(4)
 
@@ -253,7 +253,7 @@ def telegram_webhook(bot_idx):
     return 'OK', 200
 
 # ---------------------------
-# STARTUP MAIN FUNCTION
+# STARTUP MAIN FUNCTION (UPDATED AUTO-RESET)
 # ---------------------------
 async def run_all_bots():
     global apps, bots, apps_dict
@@ -273,11 +273,17 @@ async def run_all_bots():
         try:  
             await app.initialize()
             await app.start()
+            
+            # 🔥 AUTOMATIC JHATKA: Purane saare stuck messages aur webhooks ko pehle delete marega
+            await app.bot.delete_webhook(drop_pending_updates=True)
+            await asyncio.sleep(0.5) # Chhota sa gap taaki Telegram server gussa na ho
+            
+            # 🚀 Naya fresh webhook set karega automatically
             await app.bot.set_webhook(url=f"{MY_RENDER_URL}/webhook/{idx}")
-            print(f"Webhook Bound: Bot {idx}")
-        except Exception: pass  
+            print(f"Webhook Cleaned & Forcefully Bound: Bot {idx}")
+        except Exception as e: 
+            print(f"Failed starting bot {idx}: {e}")
 
-# Hypercorn ya Uvicorn ki zarurat nahi, Flask ko asgi loop me handle karenge
 if __name__ == "__main__":
     import werkzeug.serving
     
@@ -288,14 +294,12 @@ if __name__ == "__main__":
     # Initializing bots first
     loop.run_until_complete(run_all_bots())
     
-    # Flask Server ko background me na chala kar, pure server running loop ke sath integrate kiya
+    # Flask Server setup over async runtime
     port = int(os.environ.get("PORT", 8080))
     
     print("Starting Flask Webhook Server...")
-    # Yeh Render ko instantly bind dega aur continuous loop chalata rahega
     kwargs = {'host': '0.0.0.0', 'port': port, 'threaded': True}
     
-    # Creating custom execution for sync server over async runtime
     def start_sync_server():
         app_flask.run(**kwargs)
         
