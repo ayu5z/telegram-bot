@@ -40,7 +40,7 @@ RAID_TEXTS = [
     "Tmkc pe chppl hi chppl marunga !! 🤤🤤🤤🤤", "Teri maa randy ⚡⚡⚡⚡", "Chl Harmazaadi Ke ladke 💦💦💦💦",
     "hlw hlw mja aarha cudne me? 🫦🗣️🗣️🗣️", "bina ruke thukai hogi teri 😈😈😈😈", "kr na fyt 😹😹🔥🔥",
     "hlw reply fas 🤣🤣❤️‍🔥❤️‍🔥", "sort nhi krunga cud tu bina ruke 💋💋🤣🤣", "kaale Doraemon rota reh 🤤🤤🤤🤤",
-    "teri bkc me bigboss ⚡⚡⚡⚡", "Awaz neeche rndy k bacche 💦💦💦💦", "Sawal mt puch tery ma k bosda baap mhu 🫦🗣️🗣️🗣️"
+    "teri bkc me bigboss ⚡⚡⚡⚡", "Awaz neeche rndy k bacche 💦💦💦💦", "Sawal mt puch tery ma k bosda baap mhu 🫦🗣️🗣️物件"
 ]
 
 NCEMO_EMOJIS = [
@@ -53,7 +53,7 @@ SPAM_TEXTS = [
     "घिनौनी रण्डी के बच्चे उड़ कबूतर मादार चोद 🗿🖕🏻तू बात बात पर अपनी मां क्यों चूदवाता ह 🤔🤔",
     "𝙏𝙚𝙧𝙞 𝙢𝙖𝙖 𝙠𝙚 𝙗𝙝𝙤𝙨𝙙𝙚 𝙢𝙚 𝙡𝙖𝙩 𝙥𝙙𝙚𝙣𝙜𝙚 𝙗𝙝ото 𝙩𝙚𝙯 ghost 😂👯😂👯😂👯 😂👯😂👯😂👯 😂👯😂👯😂👯",
     "teri ma ko mahadev ke pas bhej dunga mc 😂🔥",
-    "हमारा कोई मा बाप नहीं है हम ऊपर से रॉकेट में बैठ के आए थे आपकी मा चोदने आये है बेटा😁🤙\n😂🔥😂🔥😂🔥😂🔥😂🔥😂🔥😂🔥😂🔥😂👿😂",
+    "हमारा कोई मा बाप नहीं hai hum upar se rocket me baith ke aaye the aapki ma chodne aaye hai beta😁🤙\n😂🔥😂🔥😂🔥😂🔥😂🔥😂🔥😂🔥😂🔥😂👿😂",
     "𝟕 रंग 𝐤 सात 🕊️ सातो खाए दाना \nतेरी मां टांग फेलाए चोदे पूरा हरियाणा\n😂🙏🏿‼️📞🚨💯",
     "मेरे हाथ में लंड hai koi asla to nahi? इसे तेरी माँ चोd दूं ? Koi masla to nahi ? 🤢❤️‍🔥",
     "teri चुट पे itne balle marungi IPL jeet jayegi 😄😄🖕🏿🖕🏿",
@@ -83,7 +83,7 @@ def save_sudo():
 
 group_tasks, heavy_spam_tasks, custom_spam_tasks = {}, {}, {}
 apps, bots, apps_dict = [], [], {}
-delay = 2.0  # Makkhan Speed - Fast & Safe for Render Free Tier
+delay = 2.0  
 
 # Decorators
 def only_sudo(func):
@@ -247,13 +247,13 @@ def telegram_webhook(bot_idx):
             req_json = request.get_json(force=True)
             asyncio.run_coroutine_threadsafe(
                 app.update_queue.put(Update.de_json(req_json, app.bot)),
-                asyncio.get_event_loop()
+                main_loop
             )
         except Exception: pass
     return 'OK', 200
 
 # ---------------------------
-# STARTUP MAIN FUNCTION (UPDATED AUTO-RESET)
+# STARTUP MAIN FUNCTION
 # ---------------------------
 async def run_all_bots():
     global apps, bots, apps_dict
@@ -273,34 +273,30 @@ async def run_all_bots():
         try:  
             await app.initialize()
             await app.start()
-            
-            # 🔥 AUTOMATIC JHATKA: Purane stuck webhooks flush karne ke liye
             await app.bot.delete_webhook(drop_pending_updates=True)
-            await asyncio.sleep(0.5)
-            
-            # 🚀 Fresh webhook register karne ke liye
+            await asyncio.sleep(0.2)
             await app.bot.set_webhook(url=f"{MY_RENDER_URL}/webhook/{idx}")
             print(f"Webhook Cleaned & Forcefully Bound: Bot {idx}")
         except Exception as e: 
             print(f"Failed starting bot {idx}: {e}")
+    print("Everything is Setup. Bots are completely live in background!")
 
-if __name__ == "__main__":
-    # Event loop setup
-    loop = asyncio.get_event_loop()
-    
-    # 1. Bots ko background me chalu karne ke liye pehle call kiya
-    loop.run_until_complete(run_all_bots())
-    
-    # 2. Flask web server start kiya background thread me
+def start_flask_server():
     port = int(os.environ.get("PORT", 8080))
     print("Starting Flask Webhook Server...")
+    app_flask.run(host='0.0.0.0', port=port, threaded=True, use_reloader=False)
+
+if __name__ == "__main__":
+    # Main loop save globally taaki threads me use ho sake
+    main_loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(main_loop)
     
+    # 1. Flask ko background thread me daala
     from threading import Thread
-    def start_sync_server():
-        app_flask.run(host='0.0.0.0', port=port, threaded=True, use_reloader=False)
-        
-    Thread(target=start_sync_server, daemon=True).start()
+    Thread(target=start_flask_server, daemon=True).start()
     
-    print("Everything is Setup. Bots are completely live!")
-    # 3. Main loop running rakha taaki data lagatar catch hota rahe
-    loop.run_forever()
+    # 2. Bots initialization directly runtime loop par chala di
+    main_loop.run_until_complete(run_all_bots())
+    
+    # 3. Main loop non-blocking mode me active rakha
+    main_loop.run_forever()
