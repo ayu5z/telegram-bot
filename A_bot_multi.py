@@ -9,7 +9,7 @@ from telegram import Update, Bot
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
 import nest_asyncio
 
-# Nest Asyncio Apply karna zaroori hai loop issues ke liye
+# Loop issues fix karne ke liye
 nest_asyncio.apply()
 
 # ---------------------------
@@ -65,22 +65,24 @@ CUTE_EMOJI_DESIGNS = [
 ]
 
 # ---------------------------
-# GLOBAL STATE (SUDO BYPASS)
+# GLOBAL STATE & VARIABLES
 # ---------------------------
+SUDO_USERS = {OWNER_ID}
 group_tasks, heavy_spam_tasks, custom_spam_tasks = {}, {}, {}
+target_slide_tasks, slide_spam_tasks, swipe_tasks = {}, {}, {}
 apps, bots, apps_dict = [], [], {}
 delay = 2.0  
 
-# Decorator to strictly verify Owner ID
+# Decorator for Owner and Sudo
 def only_sudo(func):
     async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        if update.effective_user.id != OWNER_ID: 
+        if update.effective_user.id not in SUDO_USERS: 
             return
         return await func(update, context)
     return wrapper
 
 # ---------------------------
-# SAFE BACKGROUND LOOPS
+# ALL BACKGROUND LOOPS
 # ---------------------------
 async def bot_loop(bot_obj, chat_id, base, mode):
     i = 0
@@ -115,19 +117,87 @@ async def dynamic_spam_loop(bot_obj, chat_id, user_text):
         except Exception:
             await asyncio.sleep(3)
 
+async def target_slide_loop(bot_obj, chat_id, reply_to_msg_id):
+    i = 0
+    while True:
+        try:
+            text = f"Target Locked 🎯 {RAID_TEXTS[i % len(RAID_TEXTS)]}"
+            await bot_obj.send_message(chat_id=chat_id, text=text, reply_to_message_id=reply_to_msg_id)
+            i += 1
+            await asyncio.sleep(delay)
+        except Exception:
+            await asyncio.sleep(3)
+
+async def swipe_loop(bot_obj, chat_id, target_name):
+    i = 0
+    while True:
+        try:
+            text = f"⚡ Swipe Attack on {target_name} ⚡\n{SPAM_TEXTS[i % len(SPAM_TEXTS)]}"
+            await bot_obj.send_message(chat_id=chat_id, text=text)
+            i += 1
+            await asyncio.sleep(delay)
+        except Exception:
+            await asyncio.sleep(3)
+
 # ---------------------------
-# COMMAND HANDLERS
+# COMMAND HANDLERS & BEAUTIFUL MENU
 # ---------------------------
 async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Welcome! Multi-bot system is online 24/7.")
 
 async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Commands:\n/gcnc <text>\n/ncemo <text>\n/stopgcnc\n/spam <text>\n/stopspam\n/spamloop <text>\n/endspamloop\n/stopall\n/ping")
+    # Wahi aapka purana pasandida professional format!
+    old_help_menu = (
+        "**A Bot Help Menu**\n\n"
+        "**GC Loops:**\n"
+        "/gcnc `<text>`\n"
+        "/ncemo `<text>`\n"
+        "/stopgcnc\n"
+        "/stopall\n"
+        "/delay `<sec>`\n"
+        "/status\n\n"
+        "**Traditional Heavy Spam:**\n"
+        "/spam\n"
+        "/spam `<text>`\n"
+        "/stopspam\n\n"
+        "**Custom Paragraph Loops:**\n"
+        "/spamloop `<your text>`\n"
+        "/endspamloop\n\n"
+        "**Target Slide & Spam:**\n"
+        "/targetslide (reply)\n"
+        "/stopslide (reply)\n"
+        "/slidespam (reply)\n"
+        "/stopslidespam (reply)\n\n"
+        "**Swipe Mode:**\n"
+        "/swipe `<name>`\n"
+        "/stopswipe\n\n"
+        "**SUDO Management:**\n"
+        "/addsudo (reply)\n"
+        "/delsudo (reply)\n"
+        "/listsudo\n\n"
+        "**Misc:**\n"
+        "/ping"
+    )
+    await update.message.reply_text(old_help_menu, parse_mode="Markdown")
 
 async def ping_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     t1 = time.time()
     msg = await update.message.reply_text("💥 Checking Ping...")
     await msg.edit_text(f"🚀 Speed Pong: {int((time.time() - t1) * 1000)} ms")
+
+@only_sudo
+async def status_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(f"📊 **System Status:**\n- Active Bots: {len(bots)}\n- Current Delay: {delay}s\n- Server: Live 24/7", parse_mode="Markdown")
+
+@only_sudo
+async def delay_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    global delay
+    if context.args:
+        try:
+            delay = float(context.args[0])
+            await update.message.reply_text(f"⚙️ Delay updated to {delay} seconds.")
+        except ValueError:
+            await update.message.reply_text("Provide a valid number.")
 
 @only_sudo
 async def spam_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -167,6 +237,45 @@ async def endspamloop_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("🛑 Custom loop stopped.")
 
 @only_sudo
+async def targetslide_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not update.message.reply_to_message:
+        return await update.message.reply_text("Bhai kisi ke message par reply karke command do!")
+    reply_id = update.message.reply_to_message.message_id
+    chat_id = update.message.chat_id
+    target_slide_tasks.setdefault(chat_id, {})
+    for idx, bot_obj in enumerate(bots):
+        if idx not in target_slide_tasks[chat_id]:
+            target_slide_tasks[chat_id][idx] = asyncio.create_task(target_slide_loop(bot_obj, chat_id, reply_id))
+    await update.message.reply_text("🎯 Target Locked! Slide attack activated.")
+
+@only_sudo
+async def stopslide_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.message.chat_id
+    if chat_id in target_slide_tasks:
+        for t in target_slide_tasks[chat_id].values(): t.cancel()
+        target_slide_tasks[chat_id] = {}
+    await update.message.reply_text("🛑 Target Slide stopped.")
+
+@only_sudo
+async def swipe_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not context.args: return await update.message.reply_text("Usage: /swipe <name>")
+    target_name = " ".join(context.args)
+    chat_id = update.message.chat_id
+    swipe_tasks.setdefault(chat_id, {})
+    for idx, bot_obj in enumerate(bots):
+        if idx not in swipe_tasks[chat_id]:
+            swipe_tasks[chat_id][idx] = asyncio.create_task(swipe_loop(bot_obj, chat_id, target_name))
+    await update.message.reply_text(f"⚡ Swipe mode activated on {target_name}!")
+
+@only_sudo
+async def stopswipe_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.message.chat_id
+    if chat_id in swipe_tasks:
+        for t in swipe_tasks[chat_id].values(): t.cancel()
+        swipe_tasks[chat_id] = {}
+    await update.message.reply_text("🛑 Swipe mode stopped.")
+
+@only_sudo
 async def gcnc(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args: return await update.message.reply_text("Usage: /gcnc <text>")
     base = " ".join(context.args)
@@ -197,8 +306,27 @@ async def stopgcnc(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Loop stopped in this GC.")
 
 @only_sudo
+async def addsudo_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.message.reply_to_message:
+        user_id = update.message.reply_to_message.from_user.id
+        SUDO_USERS.add(user_id)
+        await update.message.reply_text(f"✅ User {user_id} added to Sudo temporarily.")
+
+@only_sudo
+async def delsudo_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.message.reply_to_message:
+        user_id = update.message.reply_to_message.from_user.id
+        if user_id != OWNER_ID:
+            SUDO_USERS.discard(user_id)
+            await update.message.reply_text(f"❌ User {user_id} removed from Sudo.")
+
+@only_sudo
+async def listsudo_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(f"👑 **Sudo Users List:**\n" + "\n".join([f"- `{u}`" for u in SUDO_USERS]), parse_mode="Markdown")
+
+@only_sudo
 async def stopall(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    for d in [group_tasks, heavy_spam_tasks, custom_spam_tasks]:
+    for d in [group_tasks, heavy_spam_tasks, custom_spam_tasks, target_slide_tasks, swipe_tasks]:
         for cid in list(d.keys()):
             for t in d[cid].values(): t.cancel()
             d[cid] = {}
@@ -209,6 +337,8 @@ def build_app(token):
     app.add_handler(CommandHandler("start", start_cmd))
     app.add_handler(CommandHandler("help", help_cmd))
     app.add_handler(CommandHandler("ping", ping_cmd))
+    app.add_handler(CommandHandler("status", status_cmd))
+    app.add_handler(CommandHandler("delay", delay_cmd))
     app.add_handler(CommandHandler("gcnc", gcnc))
     app.add_handler(CommandHandler("ncemo", ncemo))
     app.add_handler(CommandHandler("stopgcnc", stopgcnc))
@@ -216,6 +346,15 @@ def build_app(token):
     app.add_handler(CommandHandler("stopspam", stopspam_cmd))
     app.add_handler(CommandHandler("spamloop", spamloop_cmd))        
     app.add_handler(CommandHandler("endspamloop", endspamloop_cmd))  
+    app.add_handler(CommandHandler("targetslide", targetslide_cmd))
+    app.add_handler(CommandHandler("slidespam", targetslide_cmd)) # Dono same handle karenge
+    app.add_handler(CommandHandler("stopslide", stopslide_cmd))
+    app.add_handler(CommandHandler("stopslidespam", stopslide_cmd))
+    app.add_handler(CommandHandler("swipe", swipe_cmd))
+    app.add_handler(CommandHandler("stopswipe", stopswipe_cmd))
+    app.add_handler(CommandHandler("addsudo", addsudo_cmd))
+    app.add_handler(CommandHandler("delsudo", delsudo_cmd))
+    app.add_handler(CommandHandler("listsudo", listsudo_cmd))
     app.add_handler(CommandHandler("stopall", stopall))
     return app
 
