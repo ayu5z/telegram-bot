@@ -26,7 +26,6 @@ TOKENS = [
 ]
 
 OWNER_ID = 7719675561
-SUDO_FILE = "sudo.json"
 MY_RENDER_URL = "https://telegram-bot-fsx5.onrender.com"
 
 app_flask = Flask('')
@@ -40,7 +39,7 @@ RAID_TEXTS = [
     "Tmkc pe chppl hi chppl marunga !! 🤤🤤🤤🤤", "Teri maa randy ⚡⚡⚡⚡", "Chl Harmazaadi Ke ladke 💦💦💦💦",
     "hlw hlw mja aarha cudne me? 🫦🗣️🗣️🗣️", "bina ruke thukai hogi teri 😈😈😈😈", "kr na fyt 😹😹🔥🔥",
     "hlw reply fas 🤣🤣❤️‍🔥❤️‍🔥", "sort nhi krunga cud tu bina ruke 💋💋🤣🤣", "kaale Doraemon rota reh 🤤🤤🤤🤤",
-    "teri bkc me bigboss ⚡⚡⚡⚡", "Awaz neeche rndy k bacche 💦💦💦💦", "Sawal mt puch tery ma k bosda baap mhu 🫦🗣️🗣️物件"
+    "teri bkc me bigboss ⚡⚡⚡⚡", "Awaz neeche rndy k bacche 💦💦💦💦", "Sawal mt puch tery ma k bosda baap mhu 🫦🗣️🗣️🗣️"
 ]
 
 NCEMO_EMOJIS = [
@@ -66,29 +65,17 @@ CUTE_EMOJI_DESIGNS = [
 ]
 
 # ---------------------------
-# GLOBAL STATE
+# GLOBAL STATE (SUDO BYPASS)
 # ---------------------------
-if os.path.exists(SUDO_FILE):
-    try:
-        with open(SUDO_FILE, "r") as f:
-            SUDO_USERS = set(int(x) for x in json.load(f))
-    except Exception:
-        SUDO_USERS = {OWNER_ID}
-else:
-    SUDO_USERS = {OWNER_ID}
-    with open(SUDO_FILE, "w") as f: json.dump(list(SUDO_USERS), f)
-
-def save_sudo():
-    with open(SUDO_FILE, "w") as f: json.dump(list(SUDO_USERS), f)
-
 group_tasks, heavy_spam_tasks, custom_spam_tasks = {}, {}, {}
 apps, bots, apps_dict = [], [], {}
 delay = 2.0  
 
-# Decorators
+# Decorator to strictly verify Owner ID
 def only_sudo(func):
     async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        if update.effective_user.id not in SUDO_USERS: return
+        if update.effective_user.id != OWNER_ID: 
+            return
         return await func(update, context)
     return wrapper
 
@@ -287,16 +274,11 @@ def start_flask_server():
     app_flask.run(host='0.0.0.0', port=port, threaded=True, use_reloader=False)
 
 if __name__ == "__main__":
-    # Main loop save globally taaki threads me use ho sake
     main_loop = asyncio.new_event_loop()
     asyncio.set_event_loop(main_loop)
     
-    # 1. Flask ko background thread me daala
     from threading import Thread
     Thread(target=start_flask_server, daemon=True).start()
     
-    # 2. Bots initialization directly runtime loop par chala di
     main_loop.run_until_complete(run_all_bots())
-    
-    # 3. Main loop non-blocking mode me active rakha
     main_loop.run_forever()
