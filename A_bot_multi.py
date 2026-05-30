@@ -51,7 +51,7 @@ NCEMO_EMOJIS = [
 
 SPAM_TEXTS = [
     "घिनौनी रण्डी के बच्चे उड़ कबूतर मादार चोद 🗿🖕🏻तू बात बात पर अपनी मां क्यों चूदवाता ह 🤔🤔",
-    "𝙏𝙚𝙧𝙞 𝙢𝙖𝙖 𝙠𝙚 𝙗𝙝𝙤𝙨𝙙𝙚 𝙢𝙚 𝙡𝙖𝙩 𝙥𝙙𝙚𝙣𝙜𝙚 𝙗𝙝𝙤𝙩 𝙩𝙚𝙯 ghost 😂👯😂👯😂👯 😂👯😂👯😂👯 😂👯😂👯😂👯",
+    "𝙏𝙚𝙧𝙞 𝙢𝙖𝙖 𝙠𝙚 𝙗𝙝𝙤𝙨𝙙𝙚 𝙢𝙚 𝙡𝙖𝙩 𝙥𝙙𝙚𝙣𝙜𝙚 𝙗𝙝ото 𝙩𝙚𝙯 ghost 😂👯😂👯😂👯 😂👯😂👯😂👯 😂👯😂👯😂👯",
     "teri ma ko mahadev ke pas bhej dunga mc 😂🔥",
     "हमारा कोई मा बाप नहीं है हम ऊपर से रॉकेट में बैठ के आए थे आपकी मा चोदने आये है बेटा😁🤙\n😂🔥😂🔥😂🔥😂🔥😂🔥😂🔥😂🔥😂🔥😂👿😂",
     "𝟕 रंग 𝐤 सात 🕊️ सातो खाए दाना \nतेरी मां टांग फेलाए चोदे पूरा हरियाणा\n😂🙏🏿‼️📞🚨💯",
@@ -274,37 +274,33 @@ async def run_all_bots():
             await app.initialize()
             await app.start()
             
-            # 🔥 AUTOMATIC JHATKA: Purane saare stuck messages aur webhooks ko pehle delete marega
+            # 🔥 AUTOMATIC JHATKA: Purane stuck webhooks flush karne ke liye
             await app.bot.delete_webhook(drop_pending_updates=True)
-            await asyncio.sleep(0.5) # Chhota sa gap taaki Telegram server gussa na ho
+            await asyncio.sleep(0.5)
             
-            # 🚀 Naya fresh webhook set karega automatically
+            # 🚀 Fresh webhook register karne ke liye
             await app.bot.set_webhook(url=f"{MY_RENDER_URL}/webhook/{idx}")
             print(f"Webhook Cleaned & Forcefully Bound: Bot {idx}")
         except Exception as e: 
             print(f"Failed starting bot {idx}: {e}")
 
 if __name__ == "__main__":
-    import werkzeug.serving
+    # Event loop setup
+    loop = asyncio.get_event_loop()
     
-    # Setup Event Loop safely
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    
-    # Initializing bots first
+    # 1. Bots ko background me chalu karne ke liye pehle call kiya
     loop.run_until_complete(run_all_bots())
     
-    # Flask Server setup over async runtime
+    # 2. Flask web server start kiya background thread me
     port = int(os.environ.get("PORT", 8080))
-    
     print("Starting Flask Webhook Server...")
-    kwargs = {'host': '0.0.0.0', 'port': port, 'threaded': True}
     
-    def start_sync_server():
-        app_flask.run(**kwargs)
-        
     from threading import Thread
+    def start_sync_server():
+        app_flask.run(host='0.0.0.0', port=port, threaded=True, use_reloader=False)
+        
     Thread(target=start_sync_server, daemon=True).start()
     
     print("Everything is Setup. Bots are completely live!")
+    # 3. Main loop running rakha taaki data lagatar catch hota rahe
     loop.run_forever()
