@@ -158,7 +158,7 @@ async def heavy_spam_loop(bot_obj, chat_id, prefix_text):
                 
             await bot_obj.send_message(chat_id=chat_id, text=message_text)
             i += 1
-            await asyncio.sleep(delay)
+            await asyncio.sleep(1.5)
         except Exception as e:
             print(f"[WARN] Bot heavy spam error in chat {chat_id}: {e}")
             await asyncio.sleep(2)
@@ -175,7 +175,7 @@ async def dynamic_spam_loop(bot_obj, chat_id, user_text):
             paragraph_text = "\n".join(lines)
             await bot_obj.send_message(chat_id=chat_id, text=paragraph_text)
             i += 1
-            await asyncio.sleep(delay)
+            await asyncio.sleep(1.5)
         except Exception as e:
             print(f"[WARN] Bot dynamic spam error in chat {chat_id}: {e}")
             await asyncio.sleep(2)
