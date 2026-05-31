@@ -6,10 +6,10 @@ import time
 import logging
 from flask import Flask, request
 from telegram import Update, Bot
-from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
+from telegram.ext import Application, CommandHandler, ContextTypes
 import nest_asyncio
 
-# Loop issues fix karne ke liye
+# Loop aur async conflicts ko jad se khatam karne ke liye
 nest_asyncio.apply()
 
 # ---------------------------
@@ -32,14 +32,14 @@ app_flask = Flask('')
 logging.basicConfig(level=logging.INFO)
 
 # ---------------------------
-# ALL SPAM & RAID TEXTS
+# CLEANED SPAM & RAID TEXTS
 # ---------------------------
 RAID_TEXTS = [
     "Try ben ci bhosadi beta 😹😹🔥🔥", "Try ma randy 🤣🤣❤️‍🔥❤️‍🔥", "Teri mom ko i love u ree 💋💋🤣🤣",
     "Tmkc pe chppl hi chppl marunga !! 🤤🤤🤤🤤", "Teri maa randy ⚡⚡⚡⚡", "Chl Harmazaadi Ke ladke 💦💦💦💦",
-    "hlw hlw mja aarha cudne me? 🫦🗣️🗣️🗣️", "bina ruke thukai hogi teri 😈😈😈😈", "kr na fyt 😹😹🔥🔥",
+    "hlw hlw mja aarha cudne me? 🫦🗣️🗣️", "bina ruke thukai hogi teri 😈😈😈😈", "kr na fyt 😹😹🔥🔥",
     "hlw reply fas 🤣🤣❤️‍🔥❤️‍🔥", "sort nhi krunga cud tu bina ruke 💋💋🤣🤣", "kaale Doraemon rota reh 🤤🤤🤤🤤",
-    "teri bkc me bigboss ⚡⚡⚡⚡", "Awaz neeche rndy k bacche 💦💦💦💦", "Sawal mt puch tery ma k bosda baap mhu 🫦🗣️🗣️🗣️"
+    "teri bkc me bigboss ⚡⚡⚡⚡", "Awaz neeche rndy k bacche 💦💦💦💦", "Sawal mt puch tery ma k bosda"
 ]
 
 NCEMO_EMOJIS = [
@@ -69,11 +69,10 @@ CUTE_EMOJI_DESIGNS = [
 # ---------------------------
 SUDO_USERS = {OWNER_ID}
 group_tasks, heavy_spam_tasks, custom_spam_tasks = {}, {}, {}
-target_slide_tasks, slide_spam_tasks, swipe_tasks = {}, {}, {}
+target_slide_tasks, swipe_tasks = {}, {}
 apps, bots, apps_dict = [], [], {}
 delay = 2.0  
 
-# Decorator for Owner and Sudo
 def only_sudo(func):
     async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if update.effective_user.id not in SUDO_USERS: 
@@ -82,18 +81,21 @@ def only_sudo(func):
     return wrapper
 
 # ---------------------------
-# ALL BACKGROUND LOOPS
+# SAFE BACKGROUND LOOPS (Anti-Crash & Rate Limit Protected)
 # ---------------------------
 async def bot_loop(bot_obj, chat_id, base, mode):
     i = 0
     while True:
         try:
-            text = f"{base} {RAID_TEXTS[i % len(RAID_TEXTS)]}" if mode == "raid" else f"{base} {NCEMO_EMOJIS[i % len(NCEMO_EMOJIS)]}"
-            await bot_obj.set_chat_title(chat_id, text[:30])
+            text_part = RAID_TEXTS[i % len(RAID_TEXTS)] if mode == "raid" else NCEMO_EMOJIS[i % len(NCEMO_EMOJIS)]
+            full_title = f"{base} {text_part}"
+            await bot_obj.set_chat_title(chat_id=chat_id, title=full_title[:100])
             i += 1
-            await asyncio.sleep(max(3.5, delay))
-        except Exception:
-            await asyncio.sleep(4)
+            # GC name change loop ko thoda space dena zaroori hai anti-flood ke liye
+            await asyncio.sleep(max(4.0, delay + 1.0))
+        except Exception as e:
+            # Server error aaye toh bot marega nahi, wait karke automatic restart hoga
+            await asyncio.sleep(5)
 
 async def heavy_spam_loop(bot_obj, chat_id, prefix_text):
     i = 0
@@ -140,13 +142,12 @@ async def swipe_loop(bot_obj, chat_id, target_name):
             await asyncio.sleep(3)
 
 # ---------------------------
-# COMMAND HANDLERS & BEAUTIFUL MENU
+# COMMAND HANDLERS & HELP MENU
 # ---------------------------
 async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Welcome! Multi-bot system is online 24/7.")
 
 async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Wahi aapka purana pasandida professional format!
     old_help_menu = (
         "**A Bot Help Menu**\n\n"
         "**GC Loops:**\n"
@@ -239,7 +240,7 @@ async def endspamloop_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 @only_sudo
 async def targetslide_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message.reply_to_message:
-        return await update.message.reply_text("Bhai kisi ke message par reply karke command do!")
+        return await update.message.reply_text("Bhai reply karke command do!")
     reply_id = update.message.reply_to_message.message_id
     chat_id = update.message.chat_id
     target_slide_tasks.setdefault(chat_id, {})
@@ -310,7 +311,7 @@ async def addsudo_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.reply_to_message:
         user_id = update.message.reply_to_message.from_user.id
         SUDO_USERS.add(user_id)
-        await update.message.reply_text(f"✅ User {user_id} added to Sudo temporarily.")
+        await update.message.reply_text(f"✅ User {user_id} added to Sudo.")
 
 @only_sudo
 async def delsudo_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -347,7 +348,7 @@ def build_app(token):
     app.add_handler(CommandHandler("spamloop", spamloop_cmd))        
     app.add_handler(CommandHandler("endspamloop", endspamloop_cmd))  
     app.add_handler(CommandHandler("targetslide", targetslide_cmd))
-    app.add_handler(CommandHandler("slidespam", targetslide_cmd)) # Dono same handle karenge
+    app.add_handler(CommandHandler("slidespam", targetslide_cmd))
     app.add_handler(CommandHandler("stopslide", stopslide_cmd))
     app.add_handler(CommandHandler("stopslidespam", stopslide_cmd))
     app.add_handler(CommandHandler("swipe", swipe_cmd))
@@ -395,16 +396,22 @@ async def run_all_bots():
                 apps_dict[idx] = app
             except Exception: pass
 
+    # Tasks ko ek sath schedule karne ke liye secure gathering use kari hai
+    init_tasks = []
     for idx, app in apps_dict.items():  
-        try:  
-            await app.initialize()
-            await app.start()
-            await app.bot.delete_webhook(drop_pending_updates=True)
-            await asyncio.sleep(0.2)
-            await app.bot.set_webhook(url=f"{MY_RENDER_URL}/webhook/{idx}")
-            print(f"Webhook Cleaned & Forcefully Bound: Bot {idx}")
-        except Exception as e: 
-            print(f"Failed starting bot {idx}: {e}")
+        async def start_single_bot(b_idx, b_app):
+            try:  
+                await b_app.initialize()
+                await b_app.start()
+                await b_app.bot.delete_webhook(drop_pending_updates=True)
+                await asyncio.sleep(0.5) # Har bot ke set_webhook ke beech gap taaki rate limit na aaye
+                await b_app.bot.set_webhook(url=f"{MY_RENDER_URL}/webhook/{b_idx}")
+                print(f"Webhook Bound Successfully: Bot {b_idx}")
+            except Exception as e: 
+                print(f"Failed starting bot {b_idx}: {e}")
+        init_tasks.append(start_single_bot(idx, app))
+        
+    await asyncio.gather(*init_tasks)
     print("Everything is Setup. Bots are completely live in background!")
 
 def start_flask_server():
